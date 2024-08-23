@@ -1,5 +1,3 @@
-# Create the README.md file with the content provided.
-
 readme_content = """
 # GitHub Repository [AI] Analysis Dashboard
 
