@@ -1,4 +1,4 @@
-# GitHub Repository [AI] Analysis Dashboard
+# Shiny AI GitHub Repository Analyzer
 
 ## Description
 
