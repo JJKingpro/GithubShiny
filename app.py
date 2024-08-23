@@ -72,12 +72,12 @@ app_ui = ui.page_fluid(
                             ui.div(
                                 ui.div(
                                     ui.h5("Commit Activity"),
-                                    ui.output_plot("commit_activity_plot"),
+                                    ui.output_plot("top_contributors_plot"),
                                     class_="plot-card2"
                                 ),
                                 ui.div(
                                     ui.h5("Top Contributors"),
-                                    ui.output_plot("top_contributors_plot"),
+                                    ui.output_plot("commit_activity_plot"),
                                     class_="plot-card2"
                                 ),
                                 class_="plots-wrapper"
