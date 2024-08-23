@@ -1,5 +1,7 @@
 # Shiny AI GitHub Repository Analyzer
 
+![Screenshot]([http://url/to/img.png](https://github.com/JJKingpro/GithubShiny/blob/main/julianng.shinyapps.io_git-repo-analyzer_.png))
+
 ## Description
 
 This project is a comprehensive GitHub repository finder and analysis tool that integrates with the GitHub API and leverages AI capabilities such as the Gemini 1.5 Flash LLM. It provides a detailed analysis of repositories, including visualizations and insights. The application uses a Python-based frontend developed using the Shiny library and a robust backend that handles API requests, data fetching, and AI-powered analysis.
