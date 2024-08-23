@@ -33,22 +33,23 @@ app_ui = ui.page_fluid(
                     ui.h3("**Input GitHub Repository Info**", class_="info-title"),
                     ui.input_text("repo_url", "Enter GitHub Repository URL (E.g. https://github.com/username/repo):", value=""),
                     ui.div(
-                        ui.h4(ui.tags.u("Pre-defined and Custom Questions")),
+                        ui.h4(ui.tags.u("Pre-defined and Custom Questions"), style="font-size: 1.2em;"),
                         ui.input_select(
                             "pre_defined_question",
                             "Select a pre-defined question (optional):",
                             choices=["None"] + [f"{i+1}: {q}" for i, q in enumerate(PRE_DEFINED_QUESTIONS)],
-                            width='63%'
+                            width='63%',
                         ),
+                        style="margin-bottom: 10px;",  # Adjust the value as needed
                         class_="card-input",
                     ),
-                    ui.input_text_area("user_question", "Enter your custom question (optional):", placeholder="Type your question here..."),
+                    ui.input_text_area("user_question", "Enter your custom question :", placeholder="Type your question here..."),
                     ui.input_action_button("submit", "Analyze Repository", style="background-color: #ea8148; color: white;"),
                     class_="card-input",
                     width=300
                 ),
-                ui.div(
-                    ui.layout_columns(
+                ui.navset_pill(
+                    ui.nav_panel("GitHub Repository Analysis",
                         ui.div(
                             ui.h2("GitHub Repository Analysis", class_="section-header"),
                             ui.div(
@@ -59,7 +60,9 @@ app_ui = ui.page_fluid(
                                 class_="plot-card1 area-content"
                             ),
                             class_="area-content"
-                        ),
+                        )
+                    ),
+                    ui.nav_panel("Visualization",
                         ui.div(
                             ui.h2("Visualization", class_="section-header"),
                             ui.div(
@@ -77,8 +80,7 @@ app_ui = ui.page_fluid(
                             ),
                             class_="area-content"
                         )
-                    ),
-                    class_="area-background"
+                    )
                 ),
                 class_="layout-sidebar-no-padding"
             ),
