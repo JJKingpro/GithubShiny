@@ -1,7 +1,7 @@
 # Shiny AI GitHub Repository Analyzer
 
 <p align="center">
-  <img src="https://github.com/JJKingpro/GithubShiny/blob/main/julianng.shinyapps.io_git-repo-analyzer_.png" title="Screenshot">
+  <img src="https://github.com/JJKingpro/GithubShiny/blob/main/posit_screenshot.png" title="Screenshot">
 </p>
 
 ## Description
