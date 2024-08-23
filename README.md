@@ -83,12 +83,7 @@ Python Libraries:
 
 ## Deployment
 
-To deploy this application using ShinyApps.io or any other Shiny server, follow the deployment instructions specific to the platform, ensuring all required packages are available on the server.
-
-## Screenshots
-
-refer to PDF attachment: julianng.shinyapps.io_git-repo-analyzer_.pdf
-The PDF is located in the file attachment list of the main branch
+To deploy this application using ShinyApps.io or any other Shiny server, follow the deployment instructions [here](https://shiny.posit.co/py/docs/deploy.html)
 
 ## Contributing
 
