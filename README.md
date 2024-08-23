@@ -1,4 +1,3 @@
-readme_content = """
 # GitHub Repository [AI] Analysis Dashboard
 
 ## Description
