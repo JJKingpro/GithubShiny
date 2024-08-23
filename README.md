@@ -1,7 +1,7 @@
 # Shiny AI GitHub Repository Analyzer
 
 <p align="center">
-  <img src="[your_relative_path_here](https://github.com/JJKingpro/GithubShiny/blob/main/julianng.shinyapps.io_git-repo-analyzer_.png)" width="350" title="hover text">
+  <img src="https://github.com/JJKingpro/GithubShiny/blob/main/julianng.shinyapps.io_git-repo-analyzer_.png" width="350" title="hover text">
 </p>
 
 ## Description
