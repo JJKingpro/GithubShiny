@@ -91,17 +91,3 @@ The PDF is located in the file attachment list of the main branch
 ## Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request with your changes. Ensure to update the documentation as necessary.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-"""
-
-# Save the README content to a markdown file
-readme_path = "/mnt/data/README.md"
-
-with open(readme_path, "w") as readme_file:
-    readme_file.write(readme_content)
-
-readme_path
