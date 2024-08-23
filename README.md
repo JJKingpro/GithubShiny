@@ -89,7 +89,7 @@ To deploy this application using ShinyApps.io or any other Shiny server, follow 
 ## Screenshots
 
 refer to PDF attachment: julianng.shinyapps.io_git-repo-analyzer_.pdf
-PDF is located in the main file attachment
+The PDF is located in the file attachment list of the main branch
 
 ## Contributing
 
