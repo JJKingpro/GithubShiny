@@ -17,7 +17,7 @@ app_ui = ui.page_fluid(
     ui.page_fillable(
         ui.div(
             ui.div(
-                ui.h1("GitHub Repository [AI] Analysis Dashboard", style="font-family: Georgia, serif; color: #000000; font-size: 4.0em; text-align: center; padding: 10px;"),
+                ui.h1("Shiny AI GitHub Repository Analyzer", style="font-family: Georgia, serif; color: #000000; font-size: 4.0em; text-align: center; padding: 10px;"),
                 ui.h2(
                     ui.HTML(
                         '<span style="font-family: \'Helvetica Neue\', Arial, sans-serif; font-size: 2.0em; text-align: center; font-weight: 400;">'
