@@ -20,6 +20,7 @@ Ensure you have the following installed:
 - Pip (Python package manager)
 - GitHub Account and Personal Access Token
 - Hugging Face Account and API Key
+- Google AI Studio Account and Gemini API Key
 
 Python Libraries:
 
@@ -54,10 +55,11 @@ Python Libraries:
 
 4. **Environment Variables**:
     - Create a `.env` file in the root directory.
-    - Add your GitHub token and Hugging Face API key to the `.env` file as follows:
+    - Add your GitHub token, Hugging Face API key, and Gemini API key to the `.env` file as follows:
       ```
       GITHUB_TOKEN=your_github_token_here
       HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+      GOOGLE_API_KEY=your_gemini_api_key_here
       ```
 
 5. **Prepare the Backend**:
