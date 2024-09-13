@@ -3,7 +3,12 @@ from shiny import App, ui, render, reactive
 from shiny.types import ImgData
 import logging
 import re
-from repo_analysis import get_user_input, aiohttp, generate_visualizations_as_objects, analyze_repository, fetch_repository_data, PRE_DEFINED_QUESTIONS
+from repo_analysis import (
+    aiohttp, 
+    analyze_repository, 
+    PRE_DEFINED_QUESTIONS,
+    extract_repo_name
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -34,23 +39,35 @@ app_ui = ui.page_fluid(
             ),
             ui.layout_sidebar(
                 ui.sidebar(
-                    ui.h3("**Input GitHub Repository Info**", class_="info-title"),
-                    ui.input_text("repo_url", "Enter GitHub Repository URL (E.g. https://github.com/username/repo):", value=""),
+                    ui.h4("Input GitHub Repository Info", class_="info-title"),
+                    ui.input_text("repo_url", "Enter GitHub Repository URL (E.g. https://github.com/username/repo) and click on the ☀️Analyze Repository☀️ button below", value=""),
+                    ui.input_action_button("submit", "Analyze Repository", class_="btn-primary"),
+                    ui.hr(style="margin-top: 5px; margin-bottom: 5px;"),  # Adjust the margins and style as needed
+                    ui.h4("Select or Enter your questions here", class_="info-title"),
                     ui.div(
-                        ui.h4(ui.tags.u("Pre-defined and Custom Questions"), style="font-size: 1.2em;"),
+                        ui.h4(ui.tags.u("Pre-defined Questions"), style="font-size: 1.2em;"),
                         ui.input_select(
                             "pre_defined_question",
                             "Select a pre-defined question (optional):",
                             choices=["None"] + [f"{i+1}: {q}" for i, q in enumerate(PRE_DEFINED_QUESTIONS)],
-                            width='63%',
+                            width='100%',
                         ),
-                        style="margin-bottom: 10px;",  # Adjust the value as needed
+                        style="margin-bottom: 10px;",
                         class_="card-input",
                     ),
-                    ui.input_text_area("user_question", "Enter your custom question :", placeholder="Type your question here..."),
-                    ui.input_action_button("submit", "Analyze Repository", style="background-color: #ea8148; color: white;"),
-                    class_="card-input",
-                    width=300
+                    ui.div(
+                        ui.h4(ui.tags.u("Custom Questions"), style="font-size: 1.2em;"),
+                        ui.input_text_area(
+                            "user_question",
+                            "Enter your custom question:", 
+                            placeholder="Type your question here and press the Enter key to submit..."
+                        ),
+                        ui.input_action_button("submit_question", "Submit Question", style="display: none;"),
+                        style="margin-bottom: 10px; padding: 10px; background-color: white; border: 1px solid lightgrey; border-radius: 5px;",
+                        class_="card-input",
+                        width=350
+                    ),
+                    width=400
                 ),
                 ui.navset_pill(
                     ui.nav_panel("GitHub Repository Analysis",
@@ -88,7 +105,7 @@ app_ui = ui.page_fluid(
                     ui.nav_panel("Data Flowchart",
                         ui.div(
                             ui.h2("Data FlowChart", class_="section-header"),
-                            ui.output_image("image", width= '100%' , height= '50%'),
+                            ui.output_image("image", width='100%', height='50%'),
                             class_="image-container"
                         )
                     ),
@@ -99,168 +116,208 @@ app_ui = ui.page_fluid(
         )
     ),
     ui.tags.style(
-        """
-        /* Styles for the overall UI, areas, and cards */
-        body {
-            background-color: #011936; /* Outer background color */
-            color: #24292e; /* Text color */
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            margin: 0;
-        }
+    """
+    body {
+        font-family: 'Roboto', sans-serif;
+        background-color: #f8edeb;
+        color: #24292e;
+        line-height: 1.6;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        margin: 0;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+        margin-bottom: 0.5em;
+    }
+
+    h1 { 
+        font-size: 2.0em; 
+        font-family: Georgia, serif; 
+        color: #000000; 
+        text-align: center; 
+        padding: 10px;
+    }
+    h2 { font-size: 1.5em; }
+    h3 { font-size: 1.5em; }
+    
+    /* Layout */
+    .background-wrapper {
+        background-color: #faedcd;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-wrapper {
+        background-color: #ffd6a5;
+        padding: 40px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+    }
+
+    .layout-sidebar-no-padding {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .area-content {
+        min-height: 500px;
+        background-color: #faedcd;
+        border: 2px solid #ea8148;
+        color: #000000;
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+    }
+
+    /* Cards */
+    .card-input, .plot-card1, .plot-card2, .info-card {
+        background-color: #ffffff;
+        border: 1px solid #fcd5ce;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 25px;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+
+    .card-input:hover, .plot-card1:hover, .plot-card2:hover, .info-card:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+
+    /* Buttons */
+    .btn-primary {
+        background-color: #ea8148;
+        border-color: #ea8148;
+        color: #ffffff;
+        padding: 12px 24px;
+        border-radius: 5px;
+        transition: background-color 0.3s ease, transform 0.3s ease;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .btn-primary:hover {
+        background-color: #d67339;
+        border-color: #d67339;
+        transform: translateY(-2px);
+    }
+
+    /* Section Headers */
+    .section-header {
+        background-color: #fbe5da;
+        color: #000000;
+        padding: 20px 25px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        font-size: 1.4em;
+        font-weight: bold;
+        margin-bottom: 25px;
+    }
+
+    .info-title {
+        font-weight: bold;
+        font-size: 1.6em;
+        color: #ea8148;
+        padding: 15px 0;
+        text-align: center;
+        border-bottom: 2px solid #ea8148;
+    }
+
+    /* Plots and Images */
+    .plots-wrapper {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .image-container {
+        width: 100%;
+        max-width: 1000px;
+        height: auto;
+        overflow: visible;
+        text-align: center;
+        margin: auto;
+        padding: 10px;
+    }
+
+    .navset_pill {
+        min-height: 600px;
+    }
+
+    /* Loading Indicator */
+    .loading-indicator {
+        text-align: center;
+        padding: 30px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .loading-indicator .progress {
+        height: 15px;
+        border-radius: 7px;
+    }
+
+    /* Additional Styles */
+    .output-text {
+        color: #24292e;
+    }
+
+    .border {
+        border-color: #d0d7de;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
         .background-wrapper {
-            background-color: #ede0d4 !important; /* Matching background color */
             padding: 15px;
-            border-radius: 15px; /* Curved square brackets */
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
         }
+
         .header-wrapper {
-            background-color: #ffd6a5; /* Header background color */
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 0px; /* Adds space below the header section */
+            padding: 20px;
         }
+
+        .card-input, .plot-card1, .plot-card2, .info-card {
+            padding: 15px;
+        }
+
         .card-input {
-            background-color: #faedcd !important; /* Sidebar background color with !important */
-            color: #000000; /* Black text */
-            height: 100%; /* Makes the card fill the available height */
-            width: 250px; /* Increase sidebar width */
-            overflow-wrap: break-word; /* Ensures long words break to fit */
-            word-break: break-word; /* Breaks long words or URLs */
-            white-space: normal; /* Allows text to wrap */
+            width: 100%;
         }
-        .area-background {
-            background-color: #faedcd; /* Same color as sidebar */
-            padding: 20px; /* Adjust padding as needed */
-            border-radius: 15px; /* Curved edges for consistency */
-            margin-top: 0px; /* Minimize gap between top border and columns */
-        }
-        .layout-sidebar-no-padding {
-            padding: 0 !important; /* Remove any padding around the sidebar */
-            margin: 0 !important; /* Remove any margin around the sidebar */
-            border-radius: 15px; /* Curved edges for consistency */
-        }
-        .area-content {
-            min-height: 500px; /* Ensure the area content has a minimum height to accommodate larger images */
-            background-color: #faedcd; /* Same color as sidebar */
-            border: 2px solid #ea8148; /* Border color and thickness */
-            color: #000000; /* Black text */
-            padding: 15px;
-            border-radius: 15px; /* Curved edges for consistency */
-            margin-bottom: 20px; /* Adds some spacing between the areas */
-        }
-        .plot-card1 {
-            background-color: #f8edeb; /* Internal background color */
-            border: 2px solid #fcd5ce; /* Border color and thickness */
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
-            margin-bottom: 5px; /* Adds spacing between plot cards */
-        }
-        .plot-card2 {
-            background-color: #f8edeb; /* Internal background color */
-            border: 2px solid #fcd5ce; /* Border color and thickness */
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
-            margin-bottom: 5px; /* Adds spacing between plot cards */
-            text-decoration: underline #000000; /* Underlines the text */
-        }
-        .btn-primary {
-            background-color: #2d72d9; /* GitHub Blue */
-            border-color: #2d72d9; /* GitHub Blue */
-            color: #ffffff; /* White text */
-        }
-        .btn-primary:hover {
-            background-color: #1d4ed8; /* Darker Blue */
-            border-color: #1d4ed8; /* Darker Blue */
-        }
-        .output-text {
-            color: #24292e; /* Dark Gray */
-        }
-        .border {
-            border-color: #d0d7de; /* Light Border Gray */
-        }
-        .image-container  {
-            width: 100%;  /* Full width of its parent container */
-            max-width: 1000px; /* Removes any maximum width restriction */
-            height: 100%;  /* Adjust height automatically based on the aspect ratio */
-            overflow: visible;  /* Ensures that the content is not clipped */
-            text-align: center;  /* Center-align the content within the container */
-            margin: auto; /* Centers the container if smaller than the parent */
-            padding: 10px; /* Optional: Adds some space around the image */
-        }
+        
         .plots-wrapper {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Flexible grid layout */
-            gap: 20px; /* Spacing between grid items */
+            grid-template-columns: 1fr;
         }
-        .section-header {
-            background-color: #fbe5da; /* Header background color */
-            color: #000000; /* Text color */
-            padding: 15px 20px; /* Padding for space around text */
-            border-radius: 15px; /* Rounded corners for header */
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for better separation */
-            font-size: 1.4em; /* Adjust font size as needed */
-            font-weight: bold; /* Bold text */
-            margin-bottom: 20px; /* Space below each header */
+    }
+    """
+    ),
+    ui.tags.script("""
+    document.getElementById('user_question').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            document.getElementById('submit_question').click();
         }
-        .info-title {
-            font-weight: bold; /* Make the title bold */
-            font-size: 1.5em; /* Increase the font size */
-            color: #ea8148; /* Use a distinct color for emphasis */
-            padding: 10px 0; /* Add padding for spacing */
-            text-align: center; /* Center the title */
-            border-bottom: 2px solid #ea8148; /* Add an underline for emphasis */
-        }
-        .info-card {
-            background-color: #faedcd !important; /* Matching background color */
-            padding: 15px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
-        }
-        .navset_pill {
-            min-height: 600px; /* Provide enough vertical space for the image */
-        }
-        """
-    )
+    });
+    """)
 )
 
 def server(input, output, session):
     analysis_data = reactive.Value({})
     is_loading = reactive.Value(False)
+    repo_analyzed = reactive.Value(False)
 
-    def extract_repo_name(url):
-        match = re.match(r"https://github\.com/([^/]+/[^/]+)/?.*", url)
-        if match:
-            return match.group(1)
-        return None
-
-    @render.image
-    def image():
-        # Always return the image source
-        return {"src": DataFlowChart / "DataFlowChart.png", "width": "auto", "height": "700px"}
-    pass
-    
     @reactive.Effect
-    @reactive.event(input.submit)
+    @reactive.event(input.submit, input.submit_question)
     async def update_analysis():
         is_loading.set(True)
         repo_url = input.repo_url().strip()
         user_question = input.user_question().strip()
-        repo_full_name = get_user_input(repo_url)
-
-        # Fetch data from the repository using the backend function
-        async with aiohttp.ClientSession() as session:
-            data = await fetch_repository_data(repo_full_name, session)
-
-        if not data:
-            return "Failed to retrieve repository data. Please check the repository name."
-
-        # Generate visualizations
-        visualizations = generate_visualizations_as_objects(data)
-
 
         if not repo_url:
             ui.notification_show("Repository URL cannot be empty", type="error")
@@ -275,7 +332,15 @@ def server(input, output, session):
 
         try:
             logger.info(f"Starting analysis for repository: {repo_name}")
-            result = await analyze_repository(repo_name, user_question if user_question else None)
+            
+            if not repo_analyzed.get():
+                # Initial analysis
+                result = await analyze_repository(repo_url, user_question if user_question else None)
+                repo_analyzed.set(True)
+            else:
+                # Subsequent questions
+                result = await analyze_repository(repo_url, user_question, fetch_data=False)
+            
             logger.info("Analysis completed. Processing results...")
             if "error" in result:
                 logger.error(f"Analysis error: {result['error']}")
@@ -286,28 +351,25 @@ def server(input, output, session):
                 logger.info("Analysis data set successfully")
                 ui.notification_show("Analysis complete!", type="message")
         except Exception as e:
-            logger.exception(f"An unexpected error occurred: {str(e)}")
+            logger.error(f"An unexpected error occurred: {str(e)}")
             ui.notification_show(f"An unexpected error occurred: {str(e)}", type="error")
         finally:
             logger.info("Analysis process completed")
             is_loading.set(False)
-
-        return visualizations      
-    
 
     @output
     @render.ui
     def analysis_status():
         data = analysis_data.get()
         if not data:
-            return ui.p("Click 'Analyze Repository' to start")
+            return ui.p(
+                ui.span("Click on the ☀️Analyze Repository☀️ button to begin analyzing the contents of the Github repository"), 
+                ui.br(),
+                ui.span("(The button is located on the sidebar to the left of this message)")
+            )
+        return ui.div()  # Return an empty div instead of the "Analysis Complete" message
 
-        logger.info("Rendering analysis status")
-        return ui.div(
-            ui.h5("Analysis Complete"),
-            ui.p("View results for pre-defined or custom questions below.")
-        )
-        
+
     @output
     @render.ui
     def pre_defined_question_result():
@@ -324,9 +386,10 @@ def server(input, output, session):
         if 0 <= question_index < len(pre_defined_analysis):
             qa = pre_defined_analysis[question_index]
             return ui.div(
-                ui.h3("Pre-defined Question Analysis"),
-                ui.p(ui.strong("Question: "), qa['question']),
-                ui.p(ui.strong("Answer: "), qa['answer'])
+                ui.p(ui.strong("Pre-defined Question:"), style="font-size: 1.2em;"),
+                ui.p(qa['question'], style="font-size: 1.2em; margin-bottom: 20px;"),
+                ui.p(ui.strong("Answer:"), style="font-size: 1.1em;"),
+                ui.markdown(qa['answer'])
             )
         else:
             logger.warning(f"Selected question not found: {selected_question}")
@@ -340,11 +403,30 @@ def server(input, output, session):
         
         if not data or not user_question or "user_question_analysis" not in data:
             return ui.div()
+        
         logger.info("Rendering result for user-defined question")
         return ui.div(
-            ui.h3("Custom Question Analysis"),
-            ui.p(ui.strong("Question: "), user_question),
-            ui.div(ui.strong("Answer: "), data["user_question_analysis"])
+            ui.p(ui.strong("Custom Question:"), style="font-size: 1.2em;"),
+            ui.p(user_question, style="font-size: 1.2em; margin-bottom: 20px;"),
+            ui.p(ui.strong("Answer:"), style="font-size: 1.1em;"),
+            ui.markdown(data["user_question_analysis"])
+        )
+    
+    @output
+    @render.ui
+    def user_question_result():
+        data = analysis_data.get()
+        user_question = input.user_question().strip()
+        
+        if not data or not user_question or "user_question_analysis" not in data:
+            return ui.div()
+        
+        logger.info("Rendering result for user-defined question")
+        return ui.div(
+            ui.p(ui.strong("Custom Question:"), style="font-size: 1.2em;"),
+            ui.p(user_question, style="font-size: 1.2em; margin-bottom: 20px;"),
+            ui.p(ui.strong("Answer:"), style="font-size: 1.1em;"),
+            ui.markdown(data["user_question_analysis"])
         )
     
     @output
@@ -353,8 +435,9 @@ def server(input, output, session):
         if is_loading.get():
             logger.info("Displaying loading indicator")
             return ui.div(
-                ui.p("Analysis in progress..."),
-                ui.progress(value=0.5, striped=True, animated=True)
+                ui.h4("Analysis in progress..."),
+                ui.progress(value=0.5, striped=True, animated=True),
+                class_="loading-indicator"
             )
         return ui.div()
     
@@ -377,11 +460,20 @@ def server(input, output, session):
             if fig:
                 return fig
         return None
-    
 
+    @output
+    @render.image
+    def image():
+        return {"src": DataFlowChart / "DataFlowChart.png", "width": "auto", "height": "700px"}
 
 # Create the Shiny app
 app = App(app_ui, server)
 
 if __name__ == "__main__":
     app.run()
+
+
+
+
+
+
