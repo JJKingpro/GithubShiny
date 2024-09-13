@@ -82,6 +82,13 @@ CONTRIBUTOR_LIMIT = 50
 ISSUE_LIMIT = 100
 PR_LIMIT = 100
 
+def extract_repo_name(url: str) -> Optional[str]:
+    """Extract the repository name from a GitHub URL."""
+    match = re.match(r"https://github\.com/([^/]+/[^/]+)/?.*", url)
+    if match:
+        return match.group(1)
+    return None
+
 def get_user_input(repo_url: str) -> str:
     """Get the GitHub repository full name from the user input."""
     if re.match(r"https://github\.com/[\w-]+/[\w.-]+/?$", repo_url):
@@ -210,10 +217,36 @@ async def fetch_repository_data(repo_full_name: str, force_refresh: bool = False
         return data
 
 async def analyze_with_gemini(prompt: str) -> str:
-    """Analyze repository data using Gemini 1.5 Flash API."""
+    """Analyze repository data using Gemini 1.5 Flash API with formatted output."""
+    formatting_instructions = """
+    Please format your response using the following structure:
+
+    # Summary
+    [Provide a brief summary of the analysis]
+
+    ## Key Points
+    - [First key point]
+    - [Second key point]
+    - [Third key point]
+
+    # Detailed Analysis
+    ## [Subtopic 1]
+    [Detailed analysis for subtopic 1]
+
+    ## [Subtopic 2]
+    [Detailed analysis for subtopic 2]
+
+    # Conclusion
+    [Provide a concise conclusion]
+
+    Please ensure that your response adheres to this structure for all questions, including those about trends or patterns. For questions about trends, focus on the main trends observed, if any, or explain why trends cannot be determined within the existing structure.
+    """
+
+    full_prompt = f"{formatting_instructions}\n\n{prompt}"
+
     try:
         model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = model.generate_content(full_prompt)
         
         if response.parts:
             logger.info(f"Gemini API response received. Length: {len(response.text)} characters")
@@ -232,7 +265,7 @@ async def analyze_with_gemini(prompt: str) -> str:
     except Exception as e:
         logger.error(f"Unexpected error using Gemini API: {str(e)}")
         return f"Unexpected error: {str(e)}"
-
+    
 def generate_base_prompt(data: Dict[str, Any], initial_analysis: Dict[str, Any]) -> str:
     """Generate a base prompt for LLM analysis."""
     return f"""
@@ -407,54 +440,115 @@ def generate_visualizations_as_objects(data: Dict[str, Any]) -> Dict[str, Figure
 
     return visualizations
 
-async def analyze_repository(repo_full_name: str, user_question: str = None, force_refresh: bool = False) -> Dict[str, Any]:
+async def analyze_repository(repo_url: str, user_question: Optional[str] = None, fetch_data: bool = True) -> Dict[str, Any]:
     """Perform a comprehensive analysis of the repository."""
     try:
-        # Fetch repository data
-        data = await fetch_repository_data(repo_full_name, force_refresh)
-        if "error" in data:
-            return {"error": data["error"]}
+        # NEW: Extract repository name from URL
+        repo_full_name = extract_repo_name(repo_url)
+        if not repo_full_name:
+            return {"error": "Invalid GitHub repository URL"}
 
-        # Perform initial analysis
-        initial_analysis = perform_initial_analysis(data)
+        # MODIFIED: Added caching logic
+        if fetch_data:
+            data = await fetch_repository_data(repo_full_name)
+            if "error" in data:
+                return {"error": data["error"]}
+            
+            initial_analysis = perform_initial_analysis(data)
+            vector_store = await process_repository_content(data)
+            
+            # NEW: Store data for future use
+            cache.set(f"{repo_full_name}_data", data)
+            cache.set(f"{repo_full_name}_initial_analysis", initial_analysis)
+            cache.set(f"{repo_full_name}_vector_store", vector_store)
+        else:
+            # NEW: Use cached data
+            data = cache.get(f"{repo_full_name}_data")
+            initial_analysis = cache.get(f"{repo_full_name}_initial_analysis")
+            vector_store = cache.get(f"{repo_full_name}_vector_store")
+            
+            if not all([data, initial_analysis, vector_store]):
+                return {"error": "Cached data not found. Please perform an initial analysis first."}
 
-        # Process repository content for vector search
-        vector_store = await process_repository_content(data)
-
-        # Analyze pre-defined questions
-        pre_defined_analysis = await analyze_pre_defined_questions(data, initial_analysis)
+        # Analyze pre-defined questions (only if fetch_data is True)
+        pre_defined_analysis = None
+        if fetch_data:
+            pre_defined_analysis = await analyze_pre_defined_questions(data, initial_analysis)
 
         # Analyze user question if provided
         user_question_analysis = None
         if user_question:
             user_question_analysis = await analyze_user_question(data, initial_analysis, user_question, vector_store)
 
+        # NEW: Generate visualizations
+        visualizations = generate_visualizations_as_objects(data)
+
         # Combine results
         final_report = {
             "repository": repo_full_name,
             "initial_analysis": initial_analysis,
-            "pre_defined_analysis": pre_defined_analysis,
-            "user_question_analysis": user_question_analysis
+            "visualizations": visualizations  # NEW: Added visualizations to the report
         }
+        
+        if pre_defined_analysis:
+            final_report["pre_defined_analysis"] = pre_defined_analysis
+        
+        if user_question_analysis:
+            final_report["user_question_analysis"] = user_question_analysis
 
         return final_report
 
     except Exception as e:
         logger.error(f"An error occurred during repository analysis: {str(e)}")
         return {"error": str(e)}
+# NEW: Added function to generate visualizations
+def generate_visualizations_as_objects(data: Dict[str, Any]) -> Dict[str, Figure]:
+    """Generate visualizations based on the repository data and return as plot objects."""
+    visualizations = {}
 
-async def main(repo_url: str, user_question: str = None, force_refresh: bool = False):
+    # 1. Commit Activity Over Time
+    if data.get("commits"):
+        commit_dates = [datetime.fromisoformat(commit["date"]) for commit in data["commits"] if commit.get("date")]
+        if commit_dates:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.hist(commit_dates, bins=20, color='blue', edgecolor='black')
+            ax.set_title("Commit Activity Over Time")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Number of Commits")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            visualizations["commit_activity"] = fig
+
+    # 2. Top Contributors
+    if data.get("commits"):
+        author_commits = {}
+        for commit in data["commits"]:
+            author = commit.get("author")
+            if author:
+                author_commits[author] = author_commits.get(author, 0) + 1
+        top_contributors = sorted(author_commits.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        if top_contributors:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.bar([c[0] for c in top_contributors], [c[1] for c in top_contributors], color='green')
+            ax.set_title("Top 5 Contributors")
+            ax.set_xlabel("Contributor")
+            ax.set_ylabel("Number of Commits")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            visualizations["top_contributors"] = fig
+
+    return visualizations
+
+async def main(repo_url: str, user_question: Optional[str] = None, force_refresh: bool = False):
     try:
-        repo_full_name = get_user_input(repo_url)
-        result = await analyze_repository(repo_full_name, user_question, force_refresh)
+        result = await analyze_repository(repo_url, user_question, fetch_data=force_refresh)
         
         if "error" in result:
             print(f"Error: {result['error']}")
         else:
             print(json.dumps(result, indent=2))
     
-    except ValueError as e:
-        print(f"Error: {str(e)}")
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
 
